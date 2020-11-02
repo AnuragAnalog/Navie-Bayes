@@ -8,8 +8,11 @@ from sklearn.model_selection import train_test_split
 class GaussianNB():
     def __init__(self, priors=None):
         self.n_classes_ = None
+
         if priors is not None:
             self._check_priors(priors)
+
+        self.prior_proba_ = priors
 
     def __str__(self):
         return "GaussianNB(priors="+str(self.prior_proba_)+")"
@@ -41,19 +44,23 @@ class GaussianNB():
         self.total_samples_ = len(labels)
         self.n_features_ = features.shape[1]
         self.n_classes_ = np.unique(labels)
-        self.class_encoding_ = dict()
         self.class_mean_ = dict()
         self.class_std_ = dict()
-        self.prior_proba_ = dict()
+
+        if self.prior_proba_ is None:
+            self.prior_proba_ = dict()
 
         for c in self.n_classes_:
             self.class_mean_[c] = np.mean(features[labels == c], axis=0)
             self.class_std_[c] = np.std(features[labels == c], axis=0)
-            if self.prior_proba_ is None:            
+
+            if isinstance(self.prior_proba_, dict):
                 self.prior_proba_[c] = np.sum((labels == c)) / self.total_samples_
 
-        for i, c in enumerate(self.n_classes_):
-            self.class_encoding_[c] = i
+        if labels.dtype == 'O':
+            self.class_encoding_ = dict()
+            for i, c in enumerate(self.n_classes_):
+                self.class_encoding_[c] = i
 
         return
 
@@ -67,7 +74,7 @@ class GaussianNB():
         for i, c in enumerate(self.n_classes_):
             term1 = (1 / (np.sqrt(2 * np.pi * self.class_std_[c]**2)))
             term2 = np.exp(-((data - self.class_mean_[c])**2 / (2 * self.class_std_[c]**2)))
-            tmp = np.sum(np.log(term1 * term2), axis=1) 
+            tmp = np.sum(np.log(self.prior_proba_[c] * term1 * term2), axis=1) 
             pred[:, i] = tmp
 
         pred = np.argmax(pred, axis=1)
@@ -81,14 +88,17 @@ class GaussianNB():
         if metrics not in ['R2', 'MSE', 'MAE']:
             raise ValueError("Possible metrics are [R2, MSE, MAE]")
 
+        if y.dtype == 'O':
+            y = np.vectorize(self.class_encoding_.get)(y)
+
         pred = self.predict(X)
 
         if metrics.lower() == 'mse':
             score = np.mean(np.subtract(y, pred)**2)
-        if metrics.lower() == 'mae':
+        elif metrics.lower() == 'mae':
             score = np.mean(np.abs(np.subtract(y, pred)))
-        if metrics.lower() == 'r2':
-            score = 1 - ((np.sum(np.sqrt(y, pred))) / (np.sum(np.sqrt(y, np.mean(y)))))
+        elif metrics.lower() == 'r2':
+            score = 1 - ((np.sum(np.square(y - pred))) / (np.sum(np.square(y - np.mean(y)))))
 
         return score
 
@@ -101,4 +111,4 @@ if __name__ == '__main__':
     clf.fit(train_X.values, train_y.values)
 
     print(clf.predict(test_X.values))
-    print(clf.evaluate(test_X.values, test_y.map(clf.class_encoding_).values, 'MSE'))
+    print(clf.evaluate(test_X.values, test_y.values))
