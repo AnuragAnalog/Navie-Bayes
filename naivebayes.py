@@ -49,6 +49,9 @@ class GaussianNB():
 
         if self.prior_proba_ is None:
             self.prior_proba_ = dict()
+        else:
+            if len(self.prior_proba_) != self.n_classes_:
+                raise ValueError("Number of classes should be", self.n_classes_)
 
         for c in self.n_classes_:
             self.class_mean_[c] = np.mean(features[labels == c], axis=0)
@@ -111,4 +114,4 @@ if __name__ == '__main__':
     clf.fit(train_X.values, train_y.values)
 
     print(clf.predict(test_X.values))
-    print(clf.evaluate(test_X.values, test_y.values))
+    print("R^2 score on testing data", clf.evaluate(test_X.values, test_y.values))
