@@ -3,7 +3,7 @@
 import numpy as np
 import pandas as pd
 
-from abc import ABC
+from abc import ABC, abstractclassmethod
 from sklearn.model_selection import train_test_split
 
 class naivebayes(ABC):
@@ -27,6 +27,35 @@ class naivebayes(ABC):
 
         return
 
+    @abstractclassmethod
+    def fit(self, features, labels):
+        pass
+
+    @abstractclassmethod
+    def predict(self, data):
+        pass
+
+    def evaluate(self, X, y, metrics='R2'):
+        self._check_dtype(X)
+        self._check_dtype(y)
+
+        if metrics not in ['R2', 'MSE', 'MAE']:
+            raise ValueError("Possible metrics are [R2, MSE, MAE]")
+
+        if y.dtype == 'O':
+            y = np.vectorize(self.class_encoding_.get)(y)
+
+        pred = self.predict(X)
+
+        if metrics.lower() == 'mse':
+            score = np.mean(np.subtract(y, pred)**2)
+        elif metrics.lower() == 'mae':
+            score = np.mean(np.abs(np.subtract(y, pred)))
+        elif metrics.lower() == 'r2':
+            score = 1 - ((np.sum(np.square(y - pred))) / (np.sum(np.square(y - np.mean(y)))))
+
+        return score
+
 class MultinomialNB(naivebayes):
     def __init__(self, priors=None):
         self.n_classes_ = None
@@ -37,7 +66,7 @@ class MultinomialNB(naivebayes):
         self.prior_proba_ = priors
 
     def __str__(self):
-        return "GaussianNB(priors="+str(self.prior_proba_)+")"
+        return "MultinomialNB(priors="+str(self.prior_proba_)+")"
 
     def fit(self, features, labels):
         self._check_dtype(features)
@@ -76,7 +105,7 @@ class MultinomialNB(naivebayes):
     def predict(self, data):
         self._check_dtype(data)
 
-        pred = np.zeros([[self.prior_proba_.values]] * len(self.n_classes_))
+        pred = np.array([list(self.prior_proba_.values())] * len(data))
         for j, c in enumerate(self.n_classes_):
             for i, text in enumerate(data):
                 for word in text.split():
@@ -86,7 +115,7 @@ class MultinomialNB(naivebayes):
 
         return pred
 
-class GaussianNB():
+class GaussianNB(naivebayes):
     def __init__(self, priors=None):
         self.n_classes_ = None
 
@@ -97,26 +126,6 @@ class GaussianNB():
 
     def __str__(self):
         return "GaussianNB(priors="+str(self.prior_proba_)+")"
-
-    def _check_dtype(self, arr):
-        if not isinstance(arr, np.ndarray):
-            raise ValueError("Expects only numpy ndarrays")
-
-        return
-
-    def _check_priors(self, priors):
-        self._check_dtype(priors)
-
-        if (priors < 0).any():
-            raise ValueError("Probablities cannot be less than 0")
-
-        if (priors > 1).any():
-            raise ValueError("Probablities cannot be greater than 0")
-
-        if int(sum(priors)) != 1:
-            raise ValueError("The sum of the priors should be 1")
-
-        return
 
     def fit(self, features, labels):
         self._check_dtype(features)
@@ -165,27 +174,6 @@ class GaussianNB():
 
         return pred
 
-    def evaluate(self, X, y, metrics='R2'):
-        self._check_dtype(X)
-        self._check_dtype(y)
-
-        if metrics not in ['R2', 'MSE', 'MAE']:
-            raise ValueError("Possible metrics are [R2, MSE, MAE]")
-
-        if y.dtype == 'O':
-            y = np.vectorize(self.class_encoding_.get)(y)
-
-        pred = self.predict(X)
-
-        if metrics.lower() == 'mse':
-            score = np.mean(np.subtract(y, pred)**2)
-        elif metrics.lower() == 'mae':
-            score = np.mean(np.abs(np.subtract(y, pred)))
-        elif metrics.lower() == 'r2':
-            score = 1 - ((np.sum(np.square(y - pred))) / (np.sum(np.square(y - np.mean(y)))))
-
-        return score
-
 if __name__ == '__main__':
     data = pd.read_csv('archive.zip')
 
@@ -195,4 +183,4 @@ if __name__ == '__main__':
     clf.fit(np.squeeze(train_X.values, 1), train_y.values)
 
     print(clf.predict(np.squeeze(test_X.values, 1)))
-    # print("R^2 score on testing data", clf.evaluate(test_X.values, test_y.values))
+    print("R^2 score on testing data", clf.evaluate(np.squeeze(test_X.values, 1), test_y.values))
