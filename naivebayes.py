@@ -3,7 +3,88 @@
 import numpy as np
 import pandas as pd
 
+from abc import ABC
 from sklearn.model_selection import train_test_split
+
+class naivebayes(ABC):
+    def _check_dtype(self, arr):
+        if not isinstance(arr, np.ndarray):
+            raise ValueError("Expects only numpy ndarrays")
+
+        return
+
+    def _check_priors(self, priors):
+        self._check_dtype(priors)
+
+        if (priors < 0).any():
+            raise ValueError("Probablities cannot be less than 0")
+
+        if (priors > 1).any():
+            raise ValueError("Probablities cannot be greater than 0")
+
+        if int(sum(priors)) != 1:
+            raise ValueError("The sum of the priors should be 1")
+
+        return
+
+class MultinomialNB(naivebayes):
+    def __init__(self, priors=None):
+        self.n_classes_ = None
+
+        if priors is not None:
+            self._check_priors(priors)
+
+        self.prior_proba_ = priors
+
+    def __str__(self):
+        return "GaussianNB(priors="+str(self.prior_proba_)+")"
+
+    def fit(self, features, labels):
+        self._check_dtype(features)
+        self._check_dtype(labels)
+
+        self.total_samples_ = len(labels)
+        self.n_classes_ = np.unique(labels)
+        self.class_hist_ = dict()
+        self._class_len = dict()
+
+        if self.prior_proba_ is None:
+            self.prior_proba_ = dict()
+        else:
+            if len(self.prior_proba_) != self.n_classes_:
+                raise ValueError("Number of classes should be", self.n_classes_)
+
+        for c in self.n_classes_:
+            full_str = " ".join(features[labels == c])
+            tmp = dict()
+
+            self._class_len[c] = len(full_str.split())
+            for word in full_str.split():
+                tmp[word] = tmp.get(word, 0) + 1/self._class_len[c]
+            self.class_hist_[c] = tmp.copy()
+
+            if isinstance(self.prior_proba_, dict):
+                self.prior_proba_[c] = np.sum((labels == c)) / self.total_samples_
+
+        if labels.dtype == 'O':
+            self.class_encoding_ = dict()
+            for i, c in enumerate(self.n_classes_):
+                self.class_encoding_[c] = i
+
+        return
+
+    def predict(self, data):
+        self._check_dtype(data)
+
+        pred = np.zeros([[self.prior_proba_.values]] * len(self.n_classes_))
+        for j, c in enumerate(self.n_classes_):
+            for i, text in enumerate(data):
+                for word in text.split():
+                    pred[i, j] *= self.class_hist_[c].get(word, 1/self._class_len[c])
+
+        pred = np.argmax(pred, axis=1)
+
+        return pred
 
 class GaussianNB():
     def __init__(self, priors=None):
@@ -106,12 +187,12 @@ class GaussianNB():
         return score
 
 if __name__ == '__main__':
-    data = pd.read_csv('Iris.csv', index_col='Id')
+    data = pd.read_csv('archive.zip')
 
-    train_X, test_X, train_y, test_y = train_test_split(data.loc[:, data.columns != 'Species'], data['Species'], train_size=0.8)
+    train_X, test_X, train_y, test_y = train_test_split(data.loc[:, data.columns != 'sentiment'], data['sentiment'], train_size=0.8)
 
-    clf = GaussianNB()
-    clf.fit(train_X.values, train_y.values)
+    clf = MultinomialNB()
+    clf.fit(np.squeeze(train_X.values, 1), train_y.values)
 
-    print(clf.predict(test_X.values))
-    print("R^2 score on testing data", clf.evaluate(test_X.values, test_y.values))
+    print(clf.predict(np.squeeze(test_X.values, 1)))
+    # print("R^2 score on testing data", clf.evaluate(test_X.values, test_y.values))
