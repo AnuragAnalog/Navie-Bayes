@@ -83,13 +83,15 @@ class MultinomialNB(naivebayes):
             if len(self.prior_proba_) != self.n_classes_:
                 raise ValueError("Number of classes should be", self.n_classes_)
 
+        total_str = " ".join(features)
         for c in self.n_classes_:
             full_str = " ".join(features[labels == c])
+            unique_words = len(set(full_str.split()))
             tmp = dict()
 
             self._class_len[c] = len(full_str.split())
-            for word in full_str.split():
-                tmp[word] = tmp.get(word, 0) + 1/self._class_len[c]
+            for word in total_str.split():
+                tmp[word] = (full_str.split().count(word) + 1)/(self._class_len[c] + unique_words)
             self.class_hist_[c] = tmp.copy()
 
             if isinstance(self.prior_proba_, dict):
@@ -176,7 +178,6 @@ class GaussianNB(naivebayes):
 
 if __name__ == '__main__':
     data = pd.read_csv('imdb.zip', compression='zip')
-    print(data.columns)
 
     train_X, test_X, train_y, test_y = train_test_split(data.loc[:, data.columns != 'sentiment'], data['sentiment'], train_size=0.8)
 
@@ -184,4 +185,4 @@ if __name__ == '__main__':
     clf.fit(np.squeeze(train_X.values, 1), train_y.values)
 
     print(clf.predict(np.squeeze(test_X.values, 1)))
-    print("MSE on testing data", clf.evaluate(np.squeeze(train_X.values, 1), train_y.values, metrics='MSE'))
+    print("MSE on testing data", clf.evaluate(np.squeeze(test_X.values, 1), test_y.values, metrics='MSE'))
