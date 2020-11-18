@@ -175,7 +175,8 @@ class GaussianNB(naivebayes):
         return pred
 
 if __name__ == '__main__':
-    data = pd.read_csv('archive.zip')
+    data = pd.read_csv('imdb.zip', compression='zip')
+    print(data.columns)
 
     train_X, test_X, train_y, test_y = train_test_split(data.loc[:, data.columns != 'sentiment'], data['sentiment'], train_size=0.8)
 
@@ -183,4 +184,4 @@ if __name__ == '__main__':
     clf.fit(np.squeeze(train_X.values, 1), train_y.values)
 
     print(clf.predict(np.squeeze(test_X.values, 1)))
-    print("R^2 score on testing data", clf.evaluate(np.squeeze(test_X.values, 1), test_y.values))
+    print("MSE on testing data", clf.evaluate(np.squeeze(train_X.values, 1), train_y.values, metrics='MSE'))
